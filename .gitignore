@@ -1,3 +1,4 @@
 node_modules/
+archive/
 config.json
 database.sqlite

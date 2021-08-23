@@ -4,9 +4,12 @@ const fs = require("fs");
 const client = new Client({ intents: ["GUILDS", "GUILD_MESSAGES", "DIRECT_MESSAGES"] });
 const config = require("./config.json");
 const Discord = require("discord.js");
+const { emitKeypressEvents } = require('readline');
 const commands = new Discord.Collection();
+const channels = [];
+var guild;
 
-console.log("[ABOUT] ArchivBot by TheAirBlow");
+console.log("[ABOUT] ArchiveBot by TheAirBlow");
 console.log("[ABOUT] https://github.com/theairblow/archivebot");
 
 const sequelize = new Sequelize('database', 'admin', 'admin', {
@@ -37,23 +40,32 @@ const Tags2 = sequelize.define('channel', {
 	enabled: Sequelize.BOOLEAN,
 });
 
-function checkMax() {
+async function checkMax() {
     if (config.audit.maxMessages < 0) return;
-    Tags.findAll().foreach((obj) => {
-        const channel = obj.get('channel');
-        if (obj.get('enabled')) {
-            const count = Tags2.count({ where: { channel: channel } });
-            if (count > config.audit.maxMessages) {
-                Tags2.delete({ where: { id: count } });
+    await Tags2.findAll().then(async result => {
+        for await (const obj of result) {
+            const channel = obj.get('channel');
+            if (obj.get('enabled')) {
+                const count = Tags.count({ where: { channel: channel } });
+                if (count > config.audit.maxMessages) {
+                    Tags2.delete({ where: { channel: channel } });
+                }
             }
         }
-    }) 
+    });
 }
 
 function presence() {
     fs.writeFile('./config.json', JSON.stringify(config, null, 2), function(){});
     client.user.setActivity(`${config.prefix}help | TheAirBlow`);
 }
+
+client.on("guildCreate", guild => {
+    if (guild.id !== config.guild) {
+        console.log(`[WARN] Guild "${guild.name}" tried to add the bot (${guild.id})`);
+        guild.leave();
+    }
+});
 
 client.on('ready', () => {
     console.log(`[INFO] Logged in as ${client.user.tag}!`);
@@ -75,6 +87,8 @@ fs.readdir("./commands/", async (err, files) => {
 });
 
 client.on('messageCreate', async (message) => {
+    guild = message.guild;
+    if (!channels.includes(message.channel)) channels.push(message.channel);
     const tag = await Tags2.findOne({ where: { channel: message.channelId } });
     if (tag && tag.get('enabled') == true) {
         if ((config.audit.auditBotMessages && message.author.bot) || !message.author.bot) {
@@ -86,7 +100,7 @@ client.on('messageCreate', async (message) => {
                 deleted: false,
                 username: message.member.user.tag,
             });
-            checkMax();
+            await checkMax();
         }
     }
     if (message.author.bot) return;
@@ -99,16 +113,18 @@ client.on('messageCreate', async (message) => {
 });
 
 client.on('messageDelete', async (message) => {
+    guild = message.guild;
+    if (!channels.includes(message.channel)) channels.push(message.channel);
     const tag = await Tags2.findOne({ where: { channel: message.channelId } });
     try {
         if (tag && tag.get('enabled') == true) {
             if ((config.audit.auditBotMessages && message.author.bot) || !message.author.bot) {
                 await Tags.update({ deleted: true }, { where: { messageId: message.id } });
-                checkMax();
+                await checkMax();
             }
         }
     } catch { }
-    if (message.author.bot && !config.audit.auditBotMessage && message.member.id === client.user.id) return;
+    if ((message.author.bot && !config.audit.auditBotMessage) || message.member.id === client.user.id) return;
     if (!config.report.delete) return;
     const exampleEmbed = new MessageEmbed().setTitle(`Deleting | ${message.member.user.tag}`)
     .setDescription(message.content).setColor(0x0000FF);
@@ -116,12 +132,15 @@ client.on('messageDelete', async (message) => {
 });
 
 client.on('messageUpdate', async (oldMessage, message) => {
+    guild = message.guild;
+    if (!channels.includes(message.channel)) channels.push(message.channel);
     const tag = await Tags2.findOne({ where: { channel: message.channelId } });
     try {
         if (tag && tag.get('enabled') == true) {
             if ((config.audit.auditBotMessages && message.author.bot) || !message.author.bot) {
-                await Tags.update({ edited: true, oldMessage: oldMessage.content, message: message.content }, { where: { messageId: message.id } });
-                checkMax();
+                await Tags.update({ edited: true, oldMessage: oldMessage.content, message: message.content }, 
+                    { where: { messageId: message.id } });
+                await checkMax();
             }
         }
     } catch { }
@@ -130,6 +149,10 @@ client.on('messageUpdate', async (oldMessage, message) => {
     const exampleEmbed = new MessageEmbed().setTitle(`Edit | ${message.member.user.tag}`)
     .setDescription(`${oldMessage.content} to ${message.content}`).setColor(0x0000FF);
     message.channel.send({ embeds: [exampleEmbed] });
+});
+
+client.on("channelDelete", async function(oldChannel) {
+    await require('./commands/archive').archive(client, oldChannel.id, Tags, Tags2);
 });
 
 client.login(config.token);

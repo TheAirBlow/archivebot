@@ -16,9 +16,12 @@ It is intented to be self-hosted, beacuse global bot wouldn't save so much messa
     * [+] a!audit clear: Clears audit from this channel
     * [+] a!audit list: Shows last 15 audit records
     * [+] a!audit data <id>: Shows data for message ID
-* [-] a!archive: Archive setings/actions
-    * [-] a!archive auto: Auto archive deleted channels
-    * [-] a!archive channel: Archives this channel
+    * [+] a!audit last: Shows data for last message
+* [+] a!archive: Archive setings/actions
+    * [+] a!archive auto: Auto archive deleted channels
+    * [+] a!archive channel: Archives this channel
+    * [+] a!archive list: List archived channels
+    * [+] a!archive data <id>: Get archive of channel
 * [+] a!prefix <prefix>: Changes prefix
 
 ## Config

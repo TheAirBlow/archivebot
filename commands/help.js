@@ -21,5 +21,6 @@ exports.run = (client, message, args, commands) => {
     .addField('\u200B', '**Archive**')
     .addField('archive auto', 'Auto-archive deleted channel', true)
     .addField('archive archive', 'Archive this channel', true)
+    .addField('archive data <id>', 'Get channel archive', true);
     message.channel.send({ embeds: [exampleEmbed] });
 }

@@ -1,6 +1,9 @@
 const { MessageEmbed, Permissions } = require('discord.js');
 const Discord = require("discord.js");
 const config = require('../config.json');
+const archive = require('./archive');
+
+var code = "";
 
 exports.run = async (client, message, args, commands, Tags, Tags2) => {
     const channel = message.channel;
@@ -15,6 +18,21 @@ exports.run = async (client, message, args, commands, Tags, Tags2) => {
         return;
     }
     switch(args[0]) {
+        case "last":
+            try { 
+                const tags = await Tags.findAll({ where: { channel: message.channelId }, order: [ [ 'createdAt', 'DESC' ]] });
+                const tag = tags[1];
+                const exampleEmbed7 = new MessageEmbed().setTitle(tag.username).setDescription(tag.message).setColor(0x00FF00)
+                .addField("Edited", tag.edited ? "Yes" : "No", true).addField("Deleted", tag.deleted ? "Yes" : "No", true)
+                .addField("Channel ID", tag.channel.toString(), true);
+                if (tag.edited) exampleEmbed7.addField("Old Message", tag.oldMessage);
+                channel.send({ embeds: [exampleEmbed7] });
+            } catch (e) {
+                const exampleEmbed5 = new MessageEmbed().setTitle("ArchiveBot").setDescription("Audit is empty!").setColor(0xFF0000);
+                channel.send({ embeds: [exampleEmbed5] });
+                console.log(e);
+            }
+            break;
         case "list":
             const tagList = await Tags.findAll({ where: { channel: message.channelId } });
             const tagString = tagList.map(t => t.messageId).slice(0, tagList.length <= 15 ? tagList.length : 15).join(', ') || 'Audit is empty!';
@@ -33,9 +51,7 @@ exports.run = async (client, message, args, commands, Tags, Tags2) => {
                     const exampleEmbed7 = new MessageEmbed().setTitle(tag.username).setDescription(tag.message).setColor(0x00FF00)
                     .addField("Edited", tag.edited ? "Yes" : "No", true).addField("Deleted", tag.deleted ? "Yes" : "No", true)
                     .addField("Channel ID", tag.channel.toString(), true);
-                    if (tag.edited) {
-                        exampleEmbed7.addField("Old Message", tag.oldMessage);
-                    }
+                    if (tag.edited) exampleEmbed7.addField("Old Message", tag.oldMessage);
                     channel.send({ embeds: [exampleEmbed7] });
                 } else {
                     const exampleEmbed9 = new MessageEmbed().setTitle("ArchiveBot").setDescription("This message is not it audit!").setColor(0xFF0000);
@@ -47,9 +63,25 @@ exports.run = async (client, message, args, commands, Tags, Tags2) => {
             }
             break;
         case "clear":
+            if (args.length < 2) {
+                code = archive.makeid(5);
+                const exampleEmbedtr = new MessageEmbed().setTitle("ArchiveBot").setDescription("Use this code as an argument to continue: " + code)
+                .setColor(0xFFFF00);
+                channel.send({ embeds: [exampleEmbedtr] });
+                return;
+            }
+
+            if (args[1] !== code) {
+                const exampleEmbedty = new MessageEmbed().setTitle("ArchiveBot").setDescription("Wrong code!").setColor(0xFF0000);
+                channel.send({ embeds: [exampleEmbedty] });
+                code = "";
+                return;
+            }
+
             await Tags.destroy({ where: { channel: message.channelId } });
-            const exampleEmbed99 = new MessageEmbed().setTitle("ArchiveBot").setDescription("Audit was cleared!").setColor(0x00FF00);
-            channel.send({ embeds: [exampleEmbed99] });
+            const exampleEmbedqq = new MessageEmbed().setTitle("ArchiveBot").setDescription("Audit was cleared!").setColor(0x00FF00);
+            channel.send({ embeds: [exampleEmbedqq] });
+            code = "";
             break;
         case "add":
             try {
@@ -108,6 +140,10 @@ exports.run = async (client, message, args, commands, Tags, Tags2) => {
             const exampleEmbedt = new MessageEmbed().setTitle("ArchiveBot").setDescription("New value: " + config.audit.auditBotMessages)
             .setColor(0x00FF00);
             message.channel.send({ embeds: [exampleEmbedt] });
+            break;
+        default:
+            const exampleEmbedot = new MessageEmbed().setTitle("ArchiveBot").setDescription("Unknown sub-command!").setColor(0xFF0000);
+            channel.send({ embeds: [exampleEmbedot] });
             break;
     }
 }
